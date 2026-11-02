@@ -1,52 +1,31 @@
 /**
  * Versey — Verse Module (ES Module)
- * Handles day calculations, leap years, verse fetching, and navigation.
+ * Handles local day-of-year calculation, midnight rollover timing, and verse fetching.
  */
 
 let cachedVerses = null;
 
 /**
- * Checks if a given year is a leap year.
- * @param {number} year 
- * @returns {boolean}
- */
-export function isLeapYear(year) {
-  return (year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0);
-}
-
-/**
- * Returns total days in a given year (365 or 366).
- * @param {number} year 
- * @returns {number}
- */
-export function getTotalDaysInYear(year) {
-  return isLeapYear(year) ? 366 : 365;
-}
-
-/**
- * Calculates day of the year (1 - 366) from a given Date object in local time.
- * @param {Date} date 
+ * Calculates day of the year (1 - 366) from a given Date object in the user's local time.
+ * Uses UTC midnight difference of local year/month/day components to avoid DST drift.
+ * @param {Date} date
  * @returns {number} 1-based day index
  */
 export function getDayOfYear(date = new Date()) {
-  const startOfYear = new Date(date.getFullYear(), 0, 1);
-  const diffTime = date.getTime() - startOfYear.getTime();
+  const startUtc = Date.UTC(date.getFullYear(), 0, 1);
+  const currentUtc = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
   const oneDayMs = 1000 * 60 * 60 * 24;
-  return Math.floor(diffTime / oneDayMs) + 1;
+  return Math.floor((currentUtc - startUtc) / oneDayMs) + 1;
 }
 
 /**
- * Formats a Date object for friendly display (e.g. "Monday, Oct 12, 2026").
- * @param {Date} date 
- * @returns {string}
+ * Returns milliseconds remaining until the user's next local midnight.
+ * @param {Date} now
+ * @returns {number}
  */
-export function formatDate(date = new Date()) {
-  return date.toLocaleDateString(undefined, {
-    weekday: 'long',
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric'
-  });
+export function getMsUntilLocalMidnight(now = new Date()) {
+  const nextMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 50);
+  return Math.max(1000, nextMidnight.getTime() - now.getTime());
 }
 
 /**
@@ -67,7 +46,6 @@ export function loadVerses() {
       return response.json();
     })
     .then((data) => {
-      // Allow data to be an array directly or an object containing an array
       const versesList = Array.isArray(data) ? data : (data.verses || []);
       if (!versesList.length) {
         throw new Error('Verses list is empty in verses.json');
@@ -79,8 +57,7 @@ export function loadVerses() {
 
 /**
  * Finds the verse corresponding to a given day of year.
- * Robust to various item schemas: text/verse, ref/reference, topic/category.
- * @param {Array} verses 
+ * @param {Array} verses
  * @param {number} dayOfYear 1-based day number
  * @returns {Object} normalized verse object
  */
@@ -89,10 +66,8 @@ export function getVerseForDay(verses, dayOfYear) {
     return getFallbackVerse(dayOfYear);
   }
 
-  // 1. Try finding by matching `day` property
   let found = verses.find((v) => Number(v.day) === Number(dayOfYear));
 
-  // 2. If not found, use modulo indexing
   if (!found) {
     const index = Math.max(0, (dayOfYear - 1) % verses.length);
     found = verses[index];
@@ -103,8 +78,8 @@ export function getVerseForDay(verses, dayOfYear) {
 
 /**
  * Standardizes verse property names.
- * @param {Object} rawVerse 
- * @param {number} day 
+ * @param {Object} rawVerse
+ * @param {number} day
  * @returns {Object} { day, text, reference, category }
  */
 export function normalizeVerse(rawVerse, day) {
@@ -122,7 +97,7 @@ export function normalizeVerse(rawVerse, day) {
 
 /**
  * Fallback verse in case network/file fetch encounters an issue.
- * @param {number} day 
+ * @param {number} day
  * @returns {Object}
  */
 export function getFallbackVerse(day = 1) {

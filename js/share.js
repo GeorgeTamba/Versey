@@ -7,14 +7,25 @@
 export const SITE_URL = 'https://versey.pages.dev';
 
 /**
+ * Formats the verse and reference for copying to clipboard.
+ * @param {Object} verse
+ * @returns {string}
+ */
+export function formatVerseCopyText(verse) {
+  const text = verse.text ? verse.text.trim() : '';
+  const ref = verse.reference ? verse.reference.trim() : '';
+  return `“${text}” — ${ref} (KJV)`;
+}
+
+/**
  * Formats a clean, readable share text string.
- * @param {Object} verse 
+ * @param {Object} verse
  * @returns {string}
  */
 export function formatVerseShareText(verse) {
   const text = verse.text ? verse.text.trim() : '';
   const ref = verse.reference ? verse.reference.trim() : '';
-  return `“${text}”\n\n— ${ref} (KJV)\n\n📖 Read more on Versey: ${SITE_URL}`;
+  return `“${text}”\n\n— ${ref} (KJV)\n\n${SITE_URL}`;
 }
 
 /**
@@ -27,7 +38,7 @@ export function isWebShareSupported() {
 
 /**
  * Checks if sharing files (Web Share API Level 2) is supported for the given file list.
- * @param {File[]} files 
+ * @param {File[]} files
  * @returns {boolean}
  */
 export function canShareFiles(files) {
@@ -53,13 +64,11 @@ export async function shareNative(shareData) {
   }
 
   try {
-    // If files are provided, verify canShare
     if (shareData.files && shareData.files.length) {
       if (navigator.canShare && navigator.canShare({ files: shareData.files })) {
         await navigator.share(shareData);
         return { success: true };
       }
-      // If files aren't shareable, share text and URL only
       const { files, ...textOnlyData } = shareData;
       await navigator.share(textOnlyData);
       return { success: true };
@@ -76,16 +85,16 @@ export async function shareNative(shareData) {
 }
 
 /**
- * Builds direct platform intent URLs for the fallback modal.
- * @param {Object} verse 
- * @param {string} siteUrl 
+ * Builds direct platform intent URLs for the fallback menu.
+ * @param {Object} verse
+ * @param {string} siteUrl
  * @returns {Object}
  */
 export function buildSocialShareUrls(verse, siteUrl = SITE_URL) {
   const fullShareText = formatVerseShareText(verse);
   const encodedText = encodeURIComponent(fullShareText);
   const encodedUrl = encodeURIComponent(siteUrl);
-  const tweetText = encodeURIComponent(`“${verse.text}” — ${verse.reference} (KJV)\n\n📖 Versey:`);
+  const tweetText = encodeURIComponent(`“${verse.text}” — ${verse.reference} (KJV)`);
   const emailSubject = encodeURIComponent(`Verse of the Day: ${verse.reference}`);
   const emailBody = encodeURIComponent(fullShareText);
 
@@ -93,7 +102,6 @@ export function buildSocialShareUrls(verse, siteUrl = SITE_URL) {
     whatsapp: `https://wa.me/?text=${encodedText}`,
     twitter: `https://twitter.com/intent/tweet?text=${tweetText}&url=${encodedUrl}`,
     facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`,
-    telegram: `https://t.me/share/url?url=${encodedUrl}&text=${encodeURIComponent(`“${verse.text}” — ${verse.reference}`)}`,
     email: `mailto:?subject=${emailSubject}&body=${emailBody}`
   };
 }
@@ -101,7 +109,7 @@ export function buildSocialShareUrls(verse, siteUrl = SITE_URL) {
 /**
  * Copies plain text to clipboard.
  * Uses modern navigator.clipboard with legacy textarea fallback.
- * @param {string} text 
+ * @param {string} text
  * @returns {Promise<boolean>}
  */
 export async function copyToClipboard(text) {
@@ -114,7 +122,6 @@ export async function copyToClipboard(text) {
     }
   }
 
-  // Fallback for older or unsecure environments
   try {
     const textArea = document.createElement('textarea');
     textArea.value = text;
@@ -135,10 +142,10 @@ export async function copyToClipboard(text) {
 
 /**
  * Triggers a download of a Blob as a file in the browser.
- * @param {Blob} blob 
- * @param {string} filename 
+ * @param {Blob} blob
+ * @param {string} filename
  */
-export function downloadBlob(blob, filename = 'versey.png') {
+export function downloadBlob(blob, filename = 'verse-of-the-day.png') {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
   anchor.href = url;

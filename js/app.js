@@ -1,12 +1,11 @@
 /**
  * Versey — Main Application Entry Point (ES Module)
- * Connects verse data, canvas image rendering, sharing, and UI state.
+ * Connects daily KJV verse data, canvas image rendering, sharing, and UI state.
  */
 
 import {
   getDayOfYear,
-  getTotalDaysInYear,
-  formatDate,
+  getMsUntilLocalMidnight,
   loadVerses,
   getVerseForDay,
   getFallbackVerse
@@ -21,6 +20,7 @@ import {
 import {
   isWebShareSupported,
   shareNative,
+  formatVerseCopyText,
   formatVerseShareText,
   buildSocialShareUrls,
   copyToClipboard,
@@ -33,18 +33,18 @@ import { UIManager } from './ui.js';
 class VerseyApp {
   constructor() {
     this.versesData = [];
-    this.currentDate = new Date();
     this.currentVerse = null;
-    this.isRenderingCanvas = false;
+    this.activeDayOfYear = null;
+    this.midnightTimerId = null;
 
     // Initialize UI Manager with callbacks
     this.ui = new UIManager({
-      onNavigateDay: (delta) => this.navigateDay(delta),
-      onJumpToday: () => this.jumpToToday(),
       onCustomizerChange: (format, themeId) => this.renderImagePreview(format, themeId),
-      onSharePrimary: () => this.handleSharePrimary(),
+      onOpenSharePopup: () => this.handleOpenSharePopup(),
+      onOpenDownloadPopup: () => this.handleOpenDownloadPopup(),
       onCopyText: () => this.handleCopyText(),
-      onDownloadImage: () => this.handleDownloadImage(),
+      onConfirmShare: () => this.handleConfirmShare(),
+      onConfirmDownload: () => this.handleConfirmDownload(),
       onCopyLink: () => this.handleCopyLink()
     });
   }
@@ -62,7 +62,9 @@ class VerseyApp {
       this.versesData = [getFallbackVerse(1)];
     }
 
-    await this.updateCurrentView();
+    await this.updateTodayVerse();
+    this.scheduleMidnightRollover();
+    this.bindDayCheckOnVisibility();
     this.registerServiceWorker();
   }
 
@@ -70,86 +72,121 @@ class VerseyApp {
    * Registers service worker for offline PWA support.
    */
   registerServiceWorker() {
-    if ('serviceWorker' in navigator && (window.location.protocol === 'https:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+    if (
+      'serviceWorker' in navigator &&
+      (window.location.protocol === 'https:' ||
+        window.location.hostname === 'localhost' ||
+        window.location.hostname === '127.0.0.1')
+    ) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./service-worker.js')
-          .then((reg) => console.log('Service Worker registered successfully:', reg.scope))
-          .catch((err) => console.warn('Service Worker registration skipped or failed:', err));
+        navigator.serviceWorker
+          .register('./service-worker.js')
+          .catch((err) => console.warn('Service Worker registration skipped:', err));
       });
     }
   }
 
   /**
-   * Updates view based on this.currentDate.
+   * Updates the view to show today's verse based on the user's local date.
    */
-  async updateCurrentView() {
-    this.ui.setLoading(true);
-
-    const year = this.currentDate.getFullYear();
-    const totalDays = getTotalDaysInYear(year);
-    const dayOfYear = getDayOfYear(this.currentDate);
-
-    // Check if currentDate is today
-    const today = new Date();
-    const isToday =
-      this.currentDate.getDate() === today.getDate() &&
-      this.currentDate.getMonth() === today.getMonth() &&
-      this.currentDate.getFullYear() === today.getFullYear();
+  async updateTodayVerse() {
+    const now = new Date();
+    const dayOfYear = getDayOfYear(now);
+    this.activeDayOfYear = dayOfYear;
 
     this.currentVerse = getVerseForDay(this.versesData, dayOfYear);
+    this.ui.renderVerse(this.currentVerse);
 
-    const formattedDate = formatDate(this.currentDate);
-    this.ui.renderVerse(this.currentVerse, formattedDate, isToday, totalDays);
-
-    // Render image on canvas
-    await this.renderImagePreview(this.ui.currentFormat, this.ui.currentImageTheme);
+    if (this.ui.isPopupOpen) {
+      await this.renderImagePreview(this.ui.currentFormat, this.ui.currentImageTheme);
+    }
   }
 
   /**
-   * Navigates forward or backward by +/- delta days.
-   * @param {number} delta 
+   * Automatically refreshes the verse at the user's local midnight.
    */
-  async navigateDay(delta) {
-    const nextDate = new Date(this.currentDate);
-    nextDate.setDate(nextDate.getDate() + delta);
-    this.currentDate = nextDate;
-    await this.updateCurrentView();
+  scheduleMidnightRollover() {
+    if (this.midnightTimerId) {
+      clearTimeout(this.midnightTimerId);
+    }
+
+    const msUntilMidnight = getMsUntilLocalMidnight(new Date());
+    this.midnightTimerId = setTimeout(async () => {
+      await this.updateTodayVerse();
+      this.scheduleMidnightRollover();
+    }, msUntilMidnight);
   }
 
   /**
-   * Resets date to today.
+   * Checks if the local day changed while the tab was backgrounded.
    */
-  async jumpToToday() {
-    this.currentDate = new Date();
-    await this.updateCurrentView();
-    this.ui.showToast('Jumped to today\'s verse');
+  bindDayCheckOnVisibility() {
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        const currentDay = getDayOfYear(new Date());
+        if (this.activeDayOfYear !== null && currentDay !== this.activeDayOfYear) {
+          this.updateTodayVerse();
+          this.scheduleMidnightRollover();
+        }
+      }
+    });
   }
 
   /**
-   * Renders the current verse to canvas preview.
+   * Renders the current verse onto the live preview canvas.
    */
   async renderImagePreview(format, themeId) {
     if (!this.currentVerse || !this.ui.elements.verseCanvas) return;
 
     this.ui.setCanvasLoading(true);
-    this.isRenderingCanvas = true;
-
     try {
       await renderVerseToCanvas(this.ui.elements.verseCanvas, this.currentVerse, format, themeId);
     } catch (err) {
       console.error('Failed to render canvas image', err);
     } finally {
       this.ui.setCanvasLoading(false);
-      this.isRenderingCanvas = false;
     }
   }
 
   /**
-   * Handles Primary "Share Verse" action.
-   * Tries native Web Share API Level 2 (with image file),
-   * falls back to modal if unavailable or not supported.
+   * Opens the 3-step popup in "share" mode.
    */
-  async handleSharePrimary() {
+  handleOpenSharePopup() {
+    if (!this.currentVerse) return;
+    const socialUrls = buildSocialShareUrls(this.currentVerse, SITE_URL);
+    this.ui.openCardPopup('share', socialUrls);
+  }
+
+  /**
+   * Opens the 3-step popup in "download" mode.
+   */
+  handleOpenDownloadPopup() {
+    if (!this.currentVerse) return;
+    this.ui.openCardPopup('download');
+  }
+
+  /**
+   * Copies the verse and reference directly and shows a 2-second toast (no popup).
+   */
+  async handleCopyText() {
+    if (!this.currentVerse) return;
+
+    const copyText = formatVerseCopyText(this.currentVerse);
+    const success = await copyToClipboard(copyText);
+
+    if (success) {
+      this.ui.showToast('Copied', 2000);
+    } else {
+      this.ui.showToast('Unable to copy', 2000);
+    }
+  }
+
+  /**
+   * Executes final Share action on Step 3 of the Share popup.
+   * Uses native Web Share API with image and text when supported,
+   * otherwise reveals the direct-link fallback menu.
+   */
+  async handleConfirmShare() {
     if (!this.currentVerse) return;
 
     const canvas = this.ui.elements.verseCanvas;
@@ -157,7 +194,6 @@ class VerseyApp {
     const themeId = this.ui.currentImageTheme;
     const shareText = formatVerseShareText(this.currentVerse);
 
-    // If native share is supported, attempt it
     if (isWebShareSupported()) {
       try {
         let file = null;
@@ -179,61 +215,32 @@ class VerseyApp {
 
         const result = await shareNative(sharePayload);
         if (result.success) {
-          this.ui.showToast('Shared successfully!');
+          this.ui.closeCardPopup();
+          this.ui.showToast('Shared', 2000);
           return;
         }
 
         if (result.cancelled) {
-          // User closed share sheet intentionally
           return;
         }
       } catch (err) {
-        console.warn('Native share threw, opening modal fallback', err);
+        console.warn('Native share unavailable, showing direct-link menu', err);
       }
     }
 
-    // Fallback: Open modal with direct platform links
+    // Fallback: reveal direct-link share options inside Step 3
     const socialUrls = buildSocialShareUrls(this.currentVerse, SITE_URL);
-    this.ui.openShareModal(socialUrls);
+    this.ui.showFallbackShareLinks(socialUrls);
   }
 
   /**
-   * Handles copying text to clipboard.
+   * Executes final Download action on Step 3 of the Download popup.
+   * Saves a PNG named `verse-of-the-day.png`.
    */
-  async handleCopyText() {
-    if (!this.currentVerse) return;
-
-    const shareText = formatVerseShareText(this.currentVerse);
-    const success = await copyToClipboard(shareText);
-
-    if (success) {
-      this.ui.showToast('Verse copied to clipboard!');
-    } else {
-      this.ui.showToast('Unable to copy text.');
-    }
-  }
-
-  /**
-   * Handles copying link inside the share modal.
-   */
-  async handleCopyLink() {
-    const success = await copyToClipboard(SITE_URL);
-    if (success) {
-      this.ui.showToast('Link copied to clipboard!');
-      this.ui.closeShareModal();
-    } else {
-      this.ui.showToast('Unable to copy link.');
-    }
-  }
-
-  /**
-   * Handles downloading the formatted Canvas image.
-   */
-  async handleDownloadImage() {
+  async handleConfirmDownload() {
     if (!this.currentVerse || !this.ui.elements.verseCanvas) return;
 
     try {
-      this.ui.showToast('Preparing image download...');
       const blob = await generateVerseBlob(
         this.ui.elements.verseCanvas,
         this.currentVerse,
@@ -241,16 +248,24 @@ class VerseyApp {
         this.ui.currentImageTheme
       );
 
-      const cleanRef = (this.currentVerse.reference || 'verse')
-        .toLowerCase()
-        .replace(/[^a-z0-9]/g, '-');
-      const filename = `versey-${cleanRef}-${this.ui.currentFormat}.png`;
-
-      downloadBlob(blob, filename);
-      this.ui.showToast('Image downloaded!');
+      downloadBlob(blob, 'verse-of-the-day.png');
+      this.ui.closeCardPopup();
+      this.ui.showToast('Image saved', 2000);
     } catch (err) {
       console.error('Image download failed', err);
-      this.ui.showToast('Failed to download image.');
+      this.ui.showToast('Download failed', 2000);
+    }
+  }
+
+  /**
+   * Copies the site link from the fallback share menu.
+   */
+  async handleCopyLink() {
+    const success = await copyToClipboard(SITE_URL);
+    if (success) {
+      this.ui.showToast('Link copied', 2000);
+    } else {
+      this.ui.showToast('Unable to copy link', 2000);
     }
   }
 }

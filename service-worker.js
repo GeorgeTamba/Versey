@@ -3,7 +3,7 @@
  * Caches application shell, assets, styles, scripts, and verses data.
  */
 
-const CACHE_NAME = 'versey-v1';
+const CACHE_NAME = 'versey-v2';
 const PRECACHE_ASSETS = [
   './',
   './index.html',
