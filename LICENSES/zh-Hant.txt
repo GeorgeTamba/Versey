@@ -1,0 +1,9 @@
+Translation: Chinese Union Version (官話和合譯本 / 國語和合本, original 1919 text, Traditional script)
+Language: Chinese, Traditional (zh-Hant)
+License: Public Domain (公有領域)
+
+1919年出版之《官話和合譯本》（和合本）原文屬於公有領域。
+
+--- Upstream Source Notice (copr.htm) ---
+新標點和合本 ^ &lt; &gt; 新標點和合本 新標點和合本 Chinese Union Version (traditional) Public Domain Language: 中國語文 (Chinese) Dialect: Mandarin, traditional script 2024-12-30 HTML generated with Haiola by eBible.org 30 Oct 2026 from source files dated 12 Dec 2025 ^ &lt; &gt; Public Domain
+

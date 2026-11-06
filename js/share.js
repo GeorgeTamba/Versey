@@ -1,31 +1,37 @@
 /**
  * Versey — Share Module (ES Module)
  * Handles Web Share API Level 2 with files, direct social links,
- * clipboard copy, and file downloads.
+ * localized clipboard copy, and file downloads.
  */
 
 export const SITE_URL = 'https://versey.pages.dev';
 
 /**
- * Formats the verse and reference for copying to clipboard.
+ * Formats the localized verse, reference, translation abbreviation, and site link for copying.
  * @param {Object} verse
  * @returns {string}
  */
 export function formatVerseCopyText(verse) {
   const text = verse.text ? verse.text.trim() : '';
   const ref = verse.reference ? verse.reference.trim() : '';
-  return `“${text}” — ${ref} (KJV)`;
+  const abbr = verse.translation ? verse.translation.trim() : 'KJV';
+  const isCjk = verse.lang === 'zh-Hans' || verse.lang === 'zh-Hant';
+  const quoted = isCjk ? `「${text}」` : `“${text}”`;
+  return `${quoted} — ${ref} (${abbr})\n${SITE_URL}`;
 }
 
 /**
- * Formats a clean, readable share text string.
+ * Formats a clean, readable share text string in the selected language.
  * @param {Object} verse
  * @returns {string}
  */
 export function formatVerseShareText(verse) {
   const text = verse.text ? verse.text.trim() : '';
   const ref = verse.reference ? verse.reference.trim() : '';
-  return `“${text}”\n\n— ${ref} (KJV)\n\n${SITE_URL}`;
+  const abbr = verse.translation ? verse.translation.trim() : 'KJV';
+  const isCjk = verse.lang === 'zh-Hans' || verse.lang === 'zh-Hant';
+  const quoted = isCjk ? `「${text}」` : `“${text}”`;
+  return `${quoted}\n\n— ${ref} (${abbr})\n\n${SITE_URL}`;
 }
 
 /**
@@ -85,7 +91,7 @@ export async function shareNative(shareData) {
 }
 
 /**
- * Builds direct platform intent URLs for the fallback menu.
+ * Builds direct platform intent URLs for the fallback menu in the selected language.
  * @param {Object} verse
  * @param {string} siteUrl
  * @returns {Object}
@@ -94,8 +100,11 @@ export function buildSocialShareUrls(verse, siteUrl = SITE_URL) {
   const fullShareText = formatVerseShareText(verse);
   const encodedText = encodeURIComponent(fullShareText);
   const encodedUrl = encodeURIComponent(siteUrl);
-  const tweetText = encodeURIComponent(`“${verse.text}” — ${verse.reference} (KJV)`);
-  const emailSubject = encodeURIComponent(`Verse of the Day: ${verse.reference}`);
+  const abbr = verse.translation ? verse.translation.trim() : 'KJV';
+  const isCjk = verse.lang === 'zh-Hans' || verse.lang === 'zh-Hant';
+  const quoted = isCjk ? `「${verse.text}」` : `“${verse.text}”`;
+  const tweetText = encodeURIComponent(`${quoted} — ${verse.reference} (${abbr})`);
+  const emailSubject = encodeURIComponent(`${verse.reference} (${abbr})`);
   const emailBody = encodeURIComponent(fullShareText);
 
   return {

@@ -1,0 +1,9 @@
+Translation: Santa Biblia Reina-Valera 1909 (RV1909)
+Language: Español (es)
+License: Public Domain (Dominio Público)
+
+La edición Reina-Valera de 1909 se encuentra en el dominio público.
+
+--- Upstream Source Notice (copr.htm) ---
+Santa Biblia — Reina Valera 1909 ^ &lt; &gt; Santa Biblia — Reina Valera 1909 Santa Biblia — Reina Valera 1909 The Holy Bible in Spanish, Reina Valera translation of 1909 Public Domain Language: Español (Spanish) Dialect: Castellano 1909 Translation by: Reina y Valera Dominio Público 2013-12-13 HTML generated with Haiola by eBible.org 30 Oct 2026 from source files dated 10 Aug 2015 ^ &lt; &gt; Public Domain
+

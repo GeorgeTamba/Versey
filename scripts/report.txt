@@ -1,0 +1,30 @@
+Versey — Scripture Extraction & Verification Report
+Generated: 2026-11-02T16:18:37.027Z
+Rule: No verse text is ever guessed, paraphrased, or machine-translated.
+Any missing, empty, or differently-numbered verse is listed below and omitted from output.
+================================================================================
+
+[zh-Hans] Day 80 (Ephesians 6:1-2): Verse 2 uses merged verse numbering (2-3) in source
+[zh-Hant] Day 80 (Ephesians 6:1-2): Verse 2 uses merged verse numbering (2-3) in source
+[id] Day 26 (Genesis 9:13): Verse 13 uses merged verse numbering (12-13) in source
+[id] Day 48 (1 John 5:11): Verse 11 uses merged verse numbering (9-11) in source
+[id] Day 52 (2 Corinthians 5:7): Verse 7 uses merged verse numbering (6-7) in source
+[id] Day 68 (Romans 8:38-39): Verse 38 uses merged verse numbering (38-39) in source
+[id] Day 152 (Romans 10:17): Verse 17 uses merged verse numbering (16-17) in source
+[id] Day 161 (Hebrews 6:19): Verse 19 uses merged verse numbering (19-20) in source
+[id] Day 185 (Romans 12:4-5): Verse 4 uses merged verse numbering (4-5) in source
+[id] Day 195 (1 Timothy 6:18): Verse 18 uses merged verse numbering (18-19) in source
+[id] Day 212 (Romans 5:1-2): Verse 1 uses merged verse numbering (1-2) in source
+[id] Day 226 (Hebrews 8:10): Verse 10 uses merged verse numbering (8-10) in source
+[id] Day 251 (Romans 5:1): Verse 1 uses merged verse numbering (1-2) in source
+[id] Day 290 (Zechariah 7:9): Verse 9 uses merged verse numbering (7-10) in source
+[id] Day 302 (Galatians 3:26): Verse 26 uses merged verse numbering (25-27) in source
+[id] Day 353 (Proverbs 8:11): Verse 11 uses merged verse numbering (10-11) in source
+
+================================================================================
+SUMMARY TOTALS PER LANGUAGE:
+  en       -> Found: 366 / 366 | Missing/Skipped:   0 (Source files parsed: 1)
+  es       -> Found: 366 / 366 | Missing/Skipped:   0 (Source files parsed: 66)
+  zh-Hans  -> Found: 366 / 366 | Missing/Skipped:   0 (Source files parsed: 66)
+  zh-Hant  -> Found: 366 / 366 | Missing/Skipped:   0 (Source files parsed: 66)
+  id       -> Found: 366 / 366 | Missing/Skipped:   0 (Source files parsed: 66)

@@ -1,10 +1,11 @@
 /**
  * Versey — UI Module (ES Module)
- * Manages DOM updates, theme persistence, auto-fitting verse typography,
- * reusable 3-step Share/Download popup with focus trapping, and toast alerts.
+ * Manages DOM updates, theme persistence, multi-language UI translation,
+ * language picker popup, auto-fitting verse typography, reusable 3-step
+ * Share/Download popup with focus trapping, and toast alerts.
  */
 
-import { SWATCH_LIST, FORMAT_DIMENSIONS, resolveCardPalette } from './image.js';
+import { SWATCH_LIST, FORMAT_DIMENSIONS, resolveCardPalette } from './image.js?v=6';
 
 const THEME_STORAGE_KEY = 'versey_color_theme';
 const SESSION_FORMAT_KEY = 'versey_session_format';
@@ -35,16 +36,21 @@ export class UIManager {
     // Load session state or defaults
     this.currentFormat = this.getSessionValue(SESSION_FORMAT_KEY) || 'post';
     this.currentImageTheme = this.getSessionValue(SESSION_COLOR_KEY) || 'cream';
+    this.currentLang = 'en';
+    this.i18nData = {};
 
     // Popup state
     this.popupMode = 'share'; // 'share' | 'download'
     this.currentStep = 1; // 1 | 2 | 3
     this.isPopupOpen = false;
+    this.isLangPopupOpen = false;
     this.lastFocusedElement = null;
 
     // Element references
     this.elements = {
       html: document.documentElement,
+      brandTagline: document.getElementById('brand-tagline'),
+      langToggle: document.getElementById('lang-toggle'),
       themeToggle: document.getElementById('theme-toggle'),
       themeColorMeta: document.getElementById('theme-color-meta'),
       verseCard: document.getElementById('verse-card'),
@@ -54,9 +60,18 @@ export class UIManager {
       verseQuote: document.getElementById('verse-quote'),
       verseText: document.getElementById('verse-text'),
       verseReference: document.getElementById('verse-reference'),
+      verseVersionTag: document.getElementById('verse-version-tag'),
+      footerCredit: document.getElementById('footer-credit'),
       sharePrimaryBtn: document.getElementById('share-primary-btn'),
       copyTextBtn: document.getElementById('copy-text-btn'),
       downloadImageBtn: document.getElementById('download-image-btn'),
+
+      // Language picker popup elements
+      langPopupBackdrop: document.getElementById('lang-popup-backdrop'),
+      langPopup: document.getElementById('lang-popup'),
+      langPopupTitle: document.getElementById('lang-popup-title'),
+      langPopupCloseBtn: document.getElementById('lang-popup-close-btn'),
+      langOptionBtns: document.querySelectorAll('.lang-option-btn'),
 
       // Reusable 3-step popup elements
       cardPopupBackdrop: document.getElementById('card-popup-backdrop'),
@@ -74,13 +89,19 @@ export class UIManager {
         document.getElementById('step-panel-2'),
         document.getElementById('step-panel-3')
       ],
+      formatLabel: document.getElementById('format-label'),
+      formatNameStory: document.getElementById('format-name-story'),
+      formatNamePost: document.getElementById('format-name-post'),
+      formatNameLandscape: document.getElementById('format-name-landscape'),
       formatBtns: document.querySelectorAll('.format-btn'),
+      themeLabel: document.getElementById('theme-label'),
       themeSwatchesContainer: document.getElementById('theme-swatches'),
       selectedColorName: document.getElementById('selected-color-name'),
       stepSummaryText: document.getElementById('step-summary-text'),
 
       fallbackShareLinks: document.getElementById('fallback-share-links'),
       modalCopyLinkBtn: document.getElementById('modal-copy-link-btn'),
+      copyLinkLabel: document.getElementById('copy-link-label'),
       shareLinks: {
         wa: document.getElementById('share-link-wa'),
         x: document.getElementById('share-link-x'),
@@ -89,7 +110,9 @@ export class UIManager {
       },
 
       popupBackBtn: document.getElementById('popup-back-btn'),
+      popupBackLabel: document.getElementById('popup-back-label'),
       popupNextBtn: document.getElementById('popup-next-btn'),
+      popupNextLabel: document.getElementById('popup-next-label'),
       popupFinalBtn: document.getElementById('popup-final-btn'),
       popupFinalBtnIcon: document.getElementById('popup-final-btn-icon'),
       popupFinalBtnLabel: document.getElementById('popup-final-btn-label'),
@@ -121,6 +144,120 @@ export class UIManager {
     } catch {
       // Ignore storage errors in private browsing
     }
+  }
+
+  /* ------------------------------------------------------------------------
+     i18n String Helper & Language UI Synchronization
+     ------------------------------------------------------------------------ */
+  setI18nData(i18nData = {}) {
+    this.i18nData = i18nData;
+  }
+
+  getLangBundle(lang = this.currentLang) {
+    return (this.i18nData && this.i18nData[lang]) || (this.i18nData && this.i18nData.en) || {};
+  }
+
+  t(key, fallback = '') {
+    const bundle = this.getLangBundle(this.currentLang);
+    const enBundle = (this.i18nData && this.i18nData.en) || {};
+    return (bundle.ui && bundle.ui[key]) || (enBundle.ui && enBundle.ui[key]) || fallback;
+  }
+
+  /**
+   * Updates `<html lang="...">`, language option checkmarks, and all static UI labels.
+   */
+  applyLanguageUI(langCode) {
+    this.currentLang = langCode;
+    this.elements.html.setAttribute('lang', langCode);
+
+    // Sync language picker active state & aria-checked
+    this.elements.langOptionBtns.forEach((btn) => {
+      const match = btn.dataset.lang === langCode;
+      btn.classList.toggle('active', match);
+      btn.setAttribute('aria-checked', match ? 'true' : 'false');
+    });
+
+    const bundle = this.getLangBundle(langCode);
+
+    // Brand tagline
+    if (this.elements.brandTagline && bundle.tagline) {
+      this.elements.brandTagline.textContent = bundle.tagline;
+    }
+
+    // Header icon buttons aria-label & title
+    const langBtnLabel = this.t('languageBtnLabel', 'Change language');
+    if (this.elements.langToggle) {
+      this.elements.langToggle.setAttribute('aria-label', langBtnLabel);
+      this.elements.langToggle.setAttribute('title', langBtnLabel);
+    }
+
+    const themeLabel = this.t('themeToggleLabel', 'Toggle dark mode');
+    if (this.elements.themeToggle) {
+      this.elements.themeToggle.setAttribute('aria-label', themeLabel);
+      this.elements.themeToggle.setAttribute('title', themeLabel);
+    }
+
+    // Action bar icon-only buttons aria-label & title
+    const shareLabel = this.t('shareBtnLabel', 'Share verse image');
+    if (this.elements.sharePrimaryBtn) {
+      this.elements.sharePrimaryBtn.setAttribute('aria-label', shareLabel);
+      this.elements.sharePrimaryBtn.setAttribute('title', shareLabel);
+    }
+
+    const copyLabel = this.t('copyBtnLabel', 'Copy verse text');
+    if (this.elements.copyTextBtn) {
+      this.elements.copyTextBtn.setAttribute('aria-label', copyLabel);
+      this.elements.copyTextBtn.setAttribute('title', copyLabel);
+    }
+
+    const downloadLabel = this.t('downloadBtnLabel', 'Download verse image');
+    if (this.elements.downloadImageBtn) {
+      this.elements.downloadImageBtn.setAttribute('aria-label', downloadLabel);
+      this.elements.downloadImageBtn.setAttribute('title', downloadLabel);
+    }
+
+    // Language popup header
+    if (this.elements.langPopupTitle) {
+      this.elements.langPopupTitle.textContent = this.t('languagePopupTitle', 'Language');
+    }
+
+    const closeLabel = this.t('close', 'Close');
+    if (this.elements.langPopupCloseBtn) {
+      this.elements.langPopupCloseBtn.setAttribute('aria-label', closeLabel);
+      this.elements.langPopupCloseBtn.setAttribute('title', `${closeLabel} (Esc)`);
+    }
+    if (this.elements.popupCloseBtn) {
+      this.elements.popupCloseBtn.setAttribute('aria-label', closeLabel);
+      this.elements.popupCloseBtn.setAttribute('title', `${closeLabel} (Esc)`);
+    }
+
+    // 3-step popup labels
+    if (this.elements.formatLabel) {
+      this.elements.formatLabel.textContent = this.t('stepFormat', 'Choose Format');
+    }
+    if (this.elements.themeLabel) {
+      this.elements.themeLabel.textContent = this.t('stepColor', 'Choose Color');
+    }
+    if (this.elements.formatNameStory) {
+      this.elements.formatNameStory.textContent = this.t('formatStory', 'Story / Status');
+    }
+    if (this.elements.formatNamePost) {
+      this.elements.formatNamePost.textContent = this.t('formatPost', 'Square Post');
+    }
+    if (this.elements.formatNameLandscape) {
+      this.elements.formatNameLandscape.textContent = this.t('formatLandscape', 'Landscape');
+    }
+    if (this.elements.popupBackLabel) {
+      this.elements.popupBackLabel.textContent = this.t('back', 'Back');
+    }
+    if (this.elements.popupNextLabel) {
+      this.elements.popupNextLabel.textContent = this.t('next', 'Next');
+    }
+    if (this.elements.copyLinkLabel) {
+      this.elements.copyLinkLabel.textContent = this.t('copyLink', 'Copy Link');
+    }
+
+    this.updatePopupStepUI();
   }
 
   /* ------------------------------------------------------------------------
@@ -201,7 +338,6 @@ export class UIManager {
         circle.style.background = `linear-gradient(135deg, ${swatch.bgStart}, ${swatch.bgEnd})`;
       }
 
-      // Contrast indicator dot so user sees auto text contrast
       const palette = resolveCardPalette(swatch.id);
       const dot = document.createElement('span');
       dot.className = 'swatch-contrast-dot';
@@ -273,9 +409,18 @@ export class UIManager {
     }
     if (this.elements.verseText) {
       this.elements.verseText.textContent = verse.text;
+      this.elements.verseText.setAttribute('lang', verse.lang || 'en');
     }
     if (this.elements.verseReference) {
       this.elements.verseReference.textContent = `— ${verse.reference}`;
+    }
+    if (this.elements.verseVersionTag) {
+      this.elements.verseVersionTag.textContent =
+        verse.translationFullName || verse.translation || 'King James Version';
+    }
+    if (this.elements.footerCredit) {
+      this.elements.footerCredit.textContent =
+        verse.creditFooter || 'Scripture: King James Version, public domain';
     }
 
     // Fit verse text into viewport card without page scroll
@@ -283,26 +428,26 @@ export class UIManager {
   }
 
   /**
-   * Dynamically scales the verse font size so that even the longest verse fits
-   * comfortably inside the viewport card without scrolling. Only if the minimum
-   * readable font size is reached does `.verse-quote` allow internal scroll.
+   * Dynamically scales the verse font size so that even the longest verse in any
+   * language fits comfortably inside the viewport card without page scrolling.
    */
   autoFitVerseText() {
     const quoteBox = this.elements.verseQuote;
     const textEl = this.elements.verseText;
     if (!quoteBox || !textEl) return;
 
-    // Reset inline font-size first to measure available box
+    const verseLang = textEl.getAttribute('lang') || this.currentLang;
+    const isCjk = verseLang === 'zh-Hans' || verseLang === 'zh-Hant';
+
     const vw = window.innerWidth;
     const vh = window.innerHeight;
-    const maxFontPx = Math.min(34, Math.max(20, Math.floor(Math.min(vw * 0.055, vh * 0.042))));
-    const minFontPx = 13.5;
+    const maxFontPx = Math.min(32, Math.max(19, Math.floor(Math.min(vw * 0.052, vh * 0.04))));
+    const minFontPx = 13;
 
     let currentSize = maxFontPx;
     textEl.style.fontSize = `${currentSize}px`;
-    textEl.style.lineHeight = '1.45';
+    textEl.style.lineHeight = isCjk ? '1.68' : '1.45';
 
-    // Available height inside the quote flex container
     const availableHeight = quoteBox.clientHeight;
     if (availableHeight <= 0) return;
 
@@ -310,7 +455,7 @@ export class UIManager {
       currentSize -= 0.75;
       textEl.style.fontSize = `${currentSize}px`;
       if (currentSize < 17) {
-        textEl.style.lineHeight = '1.38';
+        textEl.style.lineHeight = isCjk ? '1.56' : '1.36';
       }
     }
   }
@@ -369,7 +514,41 @@ export class UIManager {
 
     if (this.elements.selectedColorName) {
       const palette = resolveCardPalette(this.currentImageTheme);
-      this.elements.selectedColorName.textContent = palette.name;
+      this.elements.selectedColorName.textContent = isCustom
+        ? this.t('customColor', 'Custom Color')
+        : palette.name;
+    }
+  }
+
+  /* ------------------------------------------------------------------------
+     Language Picker Popup Management
+     ------------------------------------------------------------------------ */
+  openLangPopup() {
+    if (this.isPopupOpen) {
+      this.closeCardPopup();
+    }
+    this.isLangPopupOpen = true;
+    this.lastFocusedElement = document.activeElement;
+
+    this.elements.langPopupBackdrop.classList.add('is-open');
+    this.elements.langPopupBackdrop.setAttribute('aria-hidden', 'false');
+
+    requestAnimationFrame(() => {
+      const activeBtn =
+        this.elements.langPopup.querySelector('.lang-option-btn.active') ||
+        this.elements.langPopupCloseBtn;
+      if (activeBtn) activeBtn.focus();
+    });
+  }
+
+  closeLangPopup() {
+    if (!this.isLangPopupOpen) return;
+    this.isLangPopupOpen = false;
+    this.elements.langPopupBackdrop.classList.remove('is-open');
+    this.elements.langPopupBackdrop.setAttribute('aria-hidden', 'true');
+
+    if (this.lastFocusedElement && typeof this.lastFocusedElement.focus === 'function') {
+      this.lastFocusedElement.focus();
     }
   }
 
@@ -377,6 +556,9 @@ export class UIManager {
      Reusable 3-Step Popup Flow (mode: 'share' | 'download')
      ------------------------------------------------------------------------ */
   openCardPopup(mode = 'share', socialUrls = null) {
+    if (this.isLangPopupOpen) {
+      this.closeLangPopup();
+    }
     this.popupMode = mode === 'download' ? 'download' : 'share';
     this.currentStep = 1;
     this.isPopupOpen = true;
@@ -395,14 +577,13 @@ export class UIManager {
     this.elements.cardPopupBackdrop.classList.add('is-open');
     this.elements.cardPopupBackdrop.setAttribute('aria-hidden', 'false');
 
-    // Trigger canvas render immediately with remembered session format & color
     if (this.callbacks.onCustomizerChange) {
       this.callbacks.onCustomizerChange(this.currentFormat, this.currentImageTheme);
     }
 
-    // Focus first interactive control inside popup
     requestAnimationFrame(() => {
-      const activeFormatBtn = this.elements.cardPopup.querySelector('.format-btn.active') || this.elements.popupCloseBtn;
+      const activeFormatBtn =
+        this.elements.cardPopup.querySelector('.format-btn.active') || this.elements.popupCloseBtn;
       if (activeFormatBtn) activeFormatBtn.focus();
     });
   }
@@ -429,46 +610,55 @@ export class UIManager {
   updatePopupStepUI() {
     const isShare = this.popupMode === 'share';
 
-    // Header Title & Step Indicator
     if (this.elements.popupTitle) {
-      this.elements.popupTitle.textContent = isShare ? 'Share Verse' : 'Download Image';
+      this.elements.popupTitle.textContent = isShare
+        ? this.t('popupTitleShare', 'Share Verse')
+        : this.t('popupTitleDownload', 'Download Image');
     }
     if (this.elements.popupStepIndicator) {
-      this.elements.popupStepIndicator.textContent = `${this.currentStep} of 3`;
+      const stepTemplate = this.t('stepOf', '{current} of {total}');
+      this.elements.popupStepIndicator.textContent = stepTemplate
+        .replace('{current}', String(this.currentStep))
+        .replace('{total}', '3');
     }
 
-    // Toggle step class on popup for responsive preview sizing
     this.elements.cardPopup.setAttribute('data-current-step', String(this.currentStep));
 
-    // Toggle step panels
     this.elements.stepPanels.forEach((panel, idx) => {
       if (!panel) return;
       const isCurrent = idx + 1 === this.currentStep;
       panel.classList.toggle('hidden', !isCurrent);
     });
 
-    // Update summary text on Step 3
     this.updateStepSummary();
 
-    // Footer buttons visibility
     this.elements.popupBackBtn.classList.toggle('hidden', this.currentStep === 1);
     this.elements.popupNextBtn.classList.toggle('hidden', this.currentStep === 3);
     this.elements.popupFinalBtn.classList.toggle('hidden', this.currentStep !== 3);
 
-    // Configure final button icon and label based on mode
     if (this.elements.popupFinalBtnIcon) {
       this.elements.popupFinalBtnIcon.innerHTML = isShare ? SHARE_ICON_SVG : DOWNLOAD_ICON_SVG;
     }
     if (this.elements.popupFinalBtnLabel) {
-      this.elements.popupFinalBtnLabel.textContent = isShare ? 'Share' : 'Download';
+      this.elements.popupFinalBtnLabel.textContent = isShare
+        ? this.t('share', 'Share')
+        : this.t('download', 'Download');
     }
   }
 
   updateStepSummary() {
     if (!this.elements.stepSummaryText) return;
-    const dim = FORMAT_DIMENSIONS[this.currentFormat] || FORMAT_DIMENSIONS.post;
+    const formatKeyMap = {
+      story: this.t('formatStory', 'Story / Status'),
+      post: this.t('formatPost', 'Square Post'),
+      landscape: this.t('formatLandscape', 'Landscape')
+    };
+    const formatLabel = formatKeyMap[this.currentFormat] || formatKeyMap.post;
     const palette = resolveCardPalette(this.currentImageTheme);
-    this.elements.stepSummaryText.textContent = `${dim.name} • ${palette.name}`;
+    const colorName = this.currentImageTheme.startsWith('custom:')
+      ? this.t('customColor', 'Custom Color')
+      : palette.name;
+    this.elements.stepSummaryText.textContent = `${formatLabel} • ${colorName}`;
   }
 
   updateSocialLinks(socialUrls) {
@@ -489,10 +679,17 @@ export class UIManager {
   }
 
   /* ------------------------------------------------------------------------
-     Focus Trap inside Popup
+     Focus Trap inside Active Popup
      ------------------------------------------------------------------------ */
   handleFocusTrap(e) {
-    if (!this.isPopupOpen || e.key !== 'Tab') return;
+    if (e.key !== 'Tab') return;
+    const activeContainer = this.isLangPopupOpen
+      ? this.elements.langPopup
+      : this.isPopupOpen
+        ? this.elements.cardPopup
+        : null;
+
+    if (!activeContainer) return;
 
     const focusableSelectors = [
       'button:not([disabled]):not(.hidden)',
@@ -500,9 +697,9 @@ export class UIManager {
       'input:not([disabled]):not(.hidden)'
     ].join(', ');
 
-    const allFocusable = Array.from(
-      this.elements.cardPopup.querySelectorAll(focusableSelectors)
-    ).filter((el) => el.offsetParent !== null);
+    const allFocusable = Array.from(activeContainer.querySelectorAll(focusableSelectors)).filter(
+      (el) => el.offsetParent !== null
+    );
 
     if (!allFocusable.length) return;
 
@@ -510,12 +707,12 @@ export class UIManager {
     const lastEl = allFocusable[allFocusable.length - 1];
 
     if (e.shiftKey) {
-      if (document.activeElement === firstEl || !this.elements.cardPopup.contains(document.activeElement)) {
+      if (document.activeElement === firstEl || !activeContainer.contains(document.activeElement)) {
         e.preventDefault();
         lastEl.focus();
       }
     } else {
-      if (document.activeElement === lastEl || !this.elements.cardPopup.contains(document.activeElement)) {
+      if (document.activeElement === lastEl || !activeContainer.contains(document.activeElement)) {
         e.preventDefault();
         firstEl.focus();
       }
@@ -528,7 +725,6 @@ export class UIManager {
   showToast(message, duration = 2000) {
     if (!this.elements.toastContainer) return;
 
-    // Clear existing toasts to keep UI minimal and uncluttered
     this.elements.toastContainer.innerHTML = '';
 
     const toast = document.createElement('div');
@@ -543,9 +739,13 @@ export class UIManager {
 
     setTimeout(() => {
       toast.classList.remove('is-visible');
-      toast.addEventListener('transitionend', () => {
-        toast.remove();
-      }, { once: true });
+      toast.addEventListener(
+        'transitionend',
+        () => {
+          toast.remove();
+        },
+        { once: true }
+      );
     }, duration);
   }
 
@@ -555,6 +755,30 @@ export class UIManager {
   bindEvents() {
     // Theme toggle
     this.elements.themeToggle.addEventListener('click', () => this.toggleTheme());
+
+    // Language picker toggle & options
+    if (this.elements.langToggle) {
+      this.elements.langToggle.addEventListener('click', () => this.openLangPopup());
+    }
+    if (this.elements.langPopupCloseBtn) {
+      this.elements.langPopupCloseBtn.addEventListener('click', () => this.closeLangPopup());
+    }
+    if (this.elements.langPopupBackdrop) {
+      this.elements.langPopupBackdrop.addEventListener('click', (e) => {
+        if (e.target === this.elements.langPopupBackdrop) {
+          this.closeLangPopup();
+        }
+      });
+    }
+    this.elements.langOptionBtns.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const selectedLang = btn.dataset.lang;
+        this.closeLangPopup();
+        if (this.callbacks.onSelectLanguage) {
+          this.callbacks.onSelectLanguage(selectedLang);
+        }
+      });
+    });
 
     // Main icon-only action buttons
     this.elements.sharePrimaryBtn.addEventListener('click', () => {
@@ -599,7 +823,7 @@ export class UIManager {
       }
     });
 
-    // Popup close triggers (X button, backdrop click, Escape key)
+    // Card popup close triggers
     this.elements.popupCloseBtn.addEventListener('click', () => this.closeCardPopup());
     this.elements.cardPopupBackdrop.addEventListener('click', (e) => {
       if (e.target === this.elements.cardPopupBackdrop) {
@@ -614,12 +838,17 @@ export class UIManager {
       });
     }
 
-    // Escape & Tab key handling
+    // Escape & Tab key handling for both popups
     window.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && this.isPopupOpen) {
-        e.preventDefault();
-        this.closeCardPopup();
-      } else if (e.key === 'Tab' && this.isPopupOpen) {
+      if (e.key === 'Escape') {
+        if (this.isLangPopupOpen) {
+          e.preventDefault();
+          this.closeLangPopup();
+        } else if (this.isPopupOpen) {
+          e.preventDefault();
+          this.closeCardPopup();
+        }
+      } else if (e.key === 'Tab' && (this.isPopupOpen || this.isLangPopupOpen)) {
         this.handleFocusTrap(e);
       }
     });

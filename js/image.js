@@ -1,9 +1,12 @@
 /**
  * Versey — Image Generation Module (ES Module)
  * Canvas-based generator for high-resolution shareable Scripture cards.
- * Supports Story (1080x1920), Square Post (1080x1080), and Landscape (1200x675)
- * with 20+ curated themes, custom color support, and automatic contrast text color.
+ * Supports Story (1080x1920), Square Post (1080x1080), and Landscape (1200x675),
+ * multi-language typography (including CJK Noto Serif SC/TC & kinsoku line wrapping),
+ * 20+ curated themes, custom color support, and automatic contrast text color.
  */
+
+import { ensureCjkStylesheet } from './verse.js';
 
 export const FORMAT_DIMENSIONS = {
   story: { width: 1080, height: 1920, name: 'Story / Status (1080×1920)', shortName: 'Story' },
@@ -11,13 +14,6 @@ export const FORMAT_DIMENSIONS = {
   landscape: { width: 1200, height: 675, name: 'Landscape (1200×675)', shortName: 'Landscape' }
 };
 
-/**
- * 20 Curated Swatches:
- * - Neutral solids (white, soft cream, warm sand, soft gray, charcoal, black)
- * - Muted pastels (blush, lavender, sky, sage, buttercream)
- * - Earthy & deep tones (terracotta, olive, navy, burgundy, forest, espresso)
- * - Subtle gradients (dawn, golden hour, ocean mist, twilight)
- */
 export const SWATCH_LIST = [
   // Neutral Solids
   { id: 'white', name: 'Pure White', bgStart: '#ffffff', bgEnd: '#ffffff', type: 'solid' },
@@ -51,10 +47,12 @@ export const SWATCH_LIST = [
 
 export const THEMES = Object.fromEntries(SWATCH_LIST.map((s) => [s.id, s]));
 
+// CJK punctuation rules (kinsoku shori)
+const CJK_NO_START_REGEX = /^[，。、；：！？」』）”’》〉】〕］｝]/;
+const CJK_NO_END_REGEX = /[「『（“‘《〈【〔［｛]$/;
+
 /**
  * Parses a hex color string (#rgb or #rrggbb) into { r, g, b } (0-255).
- * @param {string} hex
- * @returns {{ r: number, g: number, b: number }}
  */
 export function parseHexColor(hex) {
   const clean = String(hex || '#faf7f2').replace(/[^0-9a-fA-F]/g, '');
@@ -77,8 +75,6 @@ export function parseHexColor(hex) {
 
 /**
  * Calculates WCAG relative luminance for an RGB color (0.0 darkest to 1.0 brightest).
- * @param {{ r: number, g: number, b: number }} rgb
- * @returns {number}
  */
 export function getRelativeLuminance({ r, g, b }) {
   const toLinear = (c) => {
@@ -90,9 +86,6 @@ export function getRelativeLuminance({ r, g, b }) {
 
 /**
  * Resolves a complete, high-contrast card palette from a swatch ID or custom hex string.
- * Automatically picks dark or light text colors based on background luminance.
- * @param {string} themeIdOrCustom e.g. 'cream' or 'custom:#335577' or '#335577'
- * @returns {Object} Complete color palette for canvas rendering
  */
 export function resolveCardPalette(themeIdOrCustom = 'cream') {
   let bgStart = '#faf7f2';
@@ -117,8 +110,6 @@ export function resolveCardPalette(themeIdOrCustom = 'cream') {
   const rgbStart = parseHexColor(bgStart);
   const rgbEnd = parseHexColor(bgEnd);
   const avgLum = (getRelativeLuminance(rgbStart) + getRelativeLuminance(rgbEnd)) / 2;
-
-  // Threshold ~0.36 ensures crisp dark text on light/pastel backgrounds and crisp light text on dark/deep backgrounds
   const isDarkBg = avgLum < 0.36;
 
   if (isDarkBg) {
@@ -151,26 +142,67 @@ export function resolveCardPalette(themeIdOrCustom = 'cream') {
 }
 
 /**
- * Ensures web fonts are ready before rendering on Canvas.
+ * Returns the serif and sans font-family strings for a given language code.
  */
-async function ensureFontsLoaded() {
-  if (document.fonts && document.fonts.ready) {
+export function getFontStacksForLang(langCode = 'en') {
+  if (langCode === 'zh-Hans') {
+    return {
+      serif: '"Noto Serif SC", "Songti SC", "SimSun", serif',
+      sans: '"Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif',
+      primarySerifName: 'Noto Serif SC',
+      primarySansName: 'Noto Sans SC',
+      isCjk: true
+    };
+  }
+  if (langCode === 'zh-Hant') {
+    return {
+      serif: '"Noto Serif TC", "Songti TC", "PMingLiU", serif',
+      sans: '"Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif',
+      primarySerifName: 'Noto Serif TC',
+      primarySansName: 'Noto Sans TC',
+      isCjk: true
+    };
+  }
+  return {
+    serif: '"Crimson Text", Garamond, "Times New Roman", serif',
+    sans: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+    primarySerifName: 'Crimson Text',
+    primarySansName: 'Inter',
+    isCjk: false
+  };
+}
+
+/**
+ * Waits for the required language web fonts to load via `document.fonts.load(...)`
+ * before drawing on the canvas so exported PNGs never use fallback fonts.
+ * @param {string} langCode
+ */
+async function ensureFontsLoadedForLang(langCode = 'en') {
+  if (langCode === 'zh-Hans' || langCode === 'zh-Hant') {
+    ensureCjkStylesheet(langCode);
+  }
+
+  if (typeof document !== 'undefined' && document.fonts && typeof document.fonts.load === 'function') {
+    const stacks = getFontStacksForLang(langCode);
     try {
-      await document.fonts.ready;
+      await Promise.all([
+        document.fonts.load(`400 40px "${stacks.primarySerifName}"`),
+        document.fonts.load(`600 32px "${stacks.primarySerifName}"`),
+        document.fonts.load(`600 20px "${stacks.primarySansName}"`)
+      ]);
+      if (document.fonts.ready) {
+        await document.fonts.ready;
+      }
     } catch (e) {
-      console.warn('Font loading check completed with warnings', e);
+      console.warn('Font load check completed with warnings:', e);
     }
   }
 }
 
 /**
- * Word wraps text into lines that fit within a maximum width.
- * @param {CanvasRenderingContext2D} ctx
- * @param {string} text
- * @param {number} maxWidth
- * @returns {string[]}
+ * Word-wraps Latin text (en, es, id) into lines that fit within maxWidth.
  */
-function wrapText(ctx, text, maxWidth) {
+function wrapTextByWords(ctx, text, maxWidth) {
   const words = text.split(/\s+/);
   const lines = [];
   let currentLine = '';
@@ -196,6 +228,68 @@ function wrapText(ctx, text, maxWidth) {
 }
 
 /**
+ * Character-wraps Chinese text (zh-Hans, zh-Hant) with kinsoku shori rules:
+ * - Never start a line with closing punctuation (，。、；：！？」』）)
+ * - Never end a line with opening punctuation (「『（)
+ */
+function wrapTextCjk(ctx, text, maxWidth) {
+  const chars = Array.from(text.replace(/\s+/g, ''));
+  const lines = [];
+  let currentLine = '';
+
+  for (let i = 0; i < chars.length; i++) {
+    const ch = chars[i];
+    const testLine = currentLine + ch;
+    const testWidth = ctx.measureText(testLine).width;
+
+    if (testWidth > maxWidth && currentLine.length > 0) {
+      // Rule 1: Do not start the new line with closing punctuation
+      if (CJK_NO_START_REGEX.test(ch)) {
+        if (currentLine.length > 1 && !CJK_NO_END_REGEX.test(currentLine.slice(0, -1))) {
+          // Move the last character of currentLine to the next line along with `ch`
+          const carried = currentLine.slice(-1);
+          lines.push(currentLine.slice(0, -1));
+          currentLine = carried + ch;
+        } else {
+          // Attach closing punctuation to current line and flush
+          lines.push(currentLine + ch);
+          currentLine = '';
+        }
+        continue;
+      }
+
+      // Rule 2: Do not end currentLine with opening punctuation
+      if (CJK_NO_END_REGEX.test(currentLine)) {
+        const openingChar = currentLine.slice(-1);
+        if (currentLine.length > 1) {
+          lines.push(currentLine.slice(0, -1));
+          currentLine = openingChar + ch;
+          continue;
+        }
+      }
+
+      lines.push(currentLine);
+      currentLine = ch;
+    } else {
+      currentLine = testLine;
+    }
+  }
+
+  if (currentLine) {
+    lines.push(currentLine);
+  }
+
+  return lines;
+}
+
+/**
+ * Wraps text according to language rules (CJK vs word-based).
+ */
+export function wrapTextForLang(ctx, text, maxWidth, isCjk = false) {
+  return isCjk ? wrapTextCjk(ctx, text, maxWidth) : wrapTextByWords(ctx, text, maxWidth);
+}
+
+/**
  * Draws a rounded rectangle helper.
  */
 function drawRoundedRect(ctx, x, y, width, height, radius) {
@@ -213,15 +307,18 @@ function drawRoundedRect(ctx, x, y, width, height, radius) {
 }
 
 /**
- * Renders the verse onto the target canvas.
+ * Renders the verse onto the target canvas in the verse's language.
  * @param {HTMLCanvasElement} canvas
- * @param {Object} verse { text, reference, category }
+ * @param {Object} verse
  * @param {string} format 'story' | 'post' | 'landscape'
  * @param {string} themeId Swatch ID or 'custom:#hex'
  */
 export async function renderVerseToCanvas(canvas, verse, format = 'post', themeId = 'cream') {
-  await ensureFontsLoaded();
+  const langCode = verse.lang || 'en';
+  await ensureFontsLoadedForLang(langCode);
 
+  const fontStacks = getFontStacksForLang(langCode);
+  const isCjk = fontStacks.isCjk;
   const dimensions = FORMAT_DIMENSIONS[format] || FORMAT_DIMENSIONS.post;
   const palette = resolveCardPalette(themeId);
 
@@ -249,15 +346,15 @@ export async function renderVerseToCanvas(canvas, verse, format = 'post', themeI
   ctx.stroke();
 
   // 3. Layout Bounds calculation per aspect ratio
-  const topSafe = isStory ? 240 : isLandscape ? 66 : 110;
-  const bottomSafe = isStory ? 220 : isLandscape ? 64 : 100;
-  const sidePadding = isLandscape ? 120 : 115;
+  const topSafe = isStory ? 230 : isLandscape ? 62 : 105;
+  const sidePadding = isLandscape ? 115 : 110;
   const maxContentWidth = w - sidePadding * 2;
 
   // 4. Draw Header: Category pill badge
-  const categoryText = (verse.category || 'SCRIPTURE').toUpperCase();
+  const rawCat = verse.category || 'Scripture';
+  const categoryText = isCjk ? rawCat : rawCat.toUpperCase();
   const pillFontSize = isLandscape ? 18 : 22;
-  ctx.font = `600 ${pillFontSize}px "Inter", sans-serif`;
+  ctx.font = `600 ${pillFontSize}px ${fontStacks.sans}`;
   const categoryWidth = ctx.measureText(categoryText).width;
   const pillPaddingH = isLandscape ? 22 : 28;
   const pillHeight = isLandscape ? 36 : 44;
@@ -274,24 +371,37 @@ export async function renderVerseToCanvas(canvas, verse, format = 'post', themeI
   ctx.textBaseline = 'middle';
   ctx.fillText(categoryText, w / 2, pillY + pillHeight / 2);
 
-  // 5. Footer & Reference reserved metrics
-  const footerY = h - (isStory ? 160 : isLandscape ? 48 : 68);
-  const refBlockHeight = isLandscape ? 92 : 125;
-  const availableTop = pillY + pillHeight + (isLandscape ? 24 : 40);
-  const availableBottom = footerY - refBlockHeight - (isLandscape ? 20 : 35);
-  const maxAvailableTextHeight = Math.max(120, availableBottom - availableTop);
+  // 5. Prepare Footer License Credit Lines (wrapped cleanly at the bottom of the card)
+  const creditText = verse.creditImage || verse.creditFooter || 'Scripture: King James Version, public domain';
+  const creditFontSize = isLandscape ? 14 : 17;
+  ctx.font = `500 ${creditFontSize}px ${fontStacks.sans}`;
+  const creditMaxWidth = w - inset * 2 - 60;
+  const creditLines = wrapTextByWords(ctx, creditText, creditMaxWidth);
+  const creditLineHeight = Math.round(creditFontSize * 1.35);
+  const totalCreditHeight = creditLines.length * creditLineHeight;
 
-  // 6. Dynamic Verse Typography: Auto-size text to fit comfortably
-  const fullVerseText = `“${verse.text.trim()}”`;
-  let fontSize = isStory ? 62 : isLandscape ? 44 : 54;
-  const minFontSize = isLandscape ? 22 : 28;
-  let lineHeight = Math.round(fontSize * 1.44);
+  const footerBottomY = h - (isStory ? 140 : isLandscape ? 46 : 66);
+  const footerStartY = footerBottomY - totalCreditHeight + creditLineHeight / 2;
+
+  // 6. Reference & Translation Tag metrics
+  const refBlockHeight = isLandscape ? 88 : 118;
+  const availableTop = pillY + pillHeight + (isLandscape ? 22 : 38);
+  const availableBottom = footerStartY - refBlockHeight - (isLandscape ? 20 : 34);
+  const maxAvailableTextHeight = Math.max(110, availableBottom - availableTop);
+
+  // 7. Dynamic Verse Typography: Auto-size text to fit comfortably (supports CJK line height 1.68)
+  const cleanVerse = verse.text.trim();
+  const fullVerseText = isCjk ? `「${cleanVerse}」` : `“${cleanVerse}”`;
+  let fontSize = isStory ? (isCjk ? 56 : 60) : isLandscape ? (isCjk ? 40 : 42) : isCjk ? 48 : 52;
+  const minFontSize = isLandscape ? 20 : 24;
+  const lineHeightMultiplier = isCjk ? 1.68 : isLandscape ? 1.38 : 1.45;
+  let lineHeight = Math.round(fontSize * lineHeightMultiplier);
   let lines = [];
 
   while (fontSize >= minFontSize) {
-    ctx.font = `400 ${fontSize}px "Crimson Text", Garamond, serif`;
-    lineHeight = Math.round(fontSize * (isLandscape ? 1.38 : 1.45));
-    lines = wrapText(ctx, fullVerseText, maxContentWidth);
+    ctx.font = `400 ${fontSize}px ${fontStacks.serif}`;
+    lineHeight = Math.round(fontSize * lineHeightMultiplier);
+    lines = wrapTextForLang(ctx, fullVerseText, maxContentWidth, isCjk);
     const totalTextHeight = lines.length * lineHeight;
 
     if (totalTextHeight <= maxAvailableTextHeight) {
@@ -303,23 +413,23 @@ export async function renderVerseToCanvas(canvas, verse, format = 'post', themeI
   // Center the verse + reference block inside the middle area
   const totalVerseHeight = lines.length * lineHeight;
   const totalGroupHeight = totalVerseHeight + refBlockHeight;
-  const middleAreaCenterY = (pillY + pillHeight + footerY) / 2;
+  const middleAreaCenterY = (pillY + pillHeight + (footerStartY - 16)) / 2;
   const groupStartY = middleAreaCenterY - totalGroupHeight / 2 + lineHeight / 2;
 
   // Draw Verse text lines
   ctx.fillStyle = palette.textColor;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.font = `400 ${fontSize}px "Crimson Text", Garamond, serif`;
+  ctx.font = `400 ${fontSize}px ${fontStacks.serif}`;
 
   lines.forEach((line, index) => {
     const lineY = groupStartY + index * lineHeight;
     ctx.fillText(line, w / 2, lineY);
   });
 
-  // 7. Draw Reference & KJV Tag
+  // 8. Draw Reference & Translation Tag
   const lastLineY = groupStartY + (lines.length - 1) * lineHeight;
-  const refDividerY = lastLineY + lineHeight * 0.65 + (isLandscape ? 8 : 14);
+  const refDividerY = lastLineY + lineHeight * 0.62 + (isLandscape ? 8 : 14);
 
   // Subtle separator line
   ctx.strokeStyle = palette.decorLine;
@@ -330,35 +440,36 @@ export async function renderVerseToCanvas(canvas, verse, format = 'post', themeI
   ctx.stroke();
 
   // Reference Text
-  const refFontSize = isLandscape ? 30 : 36;
-  const refY = refDividerY + (isLandscape ? 30 : 40);
-  ctx.font = `600 italic ${refFontSize}px "Crimson Text", Garamond, serif`;
+  const refFontSize = isLandscape ? 28 : 34;
+  const refY = refDividerY + (isLandscape ? 28 : 38);
+  ctx.font = isCjk
+    ? `600 ${refFontSize}px ${fontStacks.serif}`
+    : `600 italic ${refFontSize}px ${fontStacks.serif}`;
   ctx.fillStyle = palette.textColor;
   ctx.fillText(verse.reference || 'Scripture', w / 2, refY);
 
-  // Version tag
-  const kjvFontSize = isLandscape ? 15 : 19;
-  ctx.font = `600 ${kjvFontSize}px "Inter", sans-serif`;
+  // Translation version tag
+  const versionLabel = verse.translationFullName || verse.translation || 'KJV';
+  const kjvFontSize = isLandscape ? 15 : 18;
+  ctx.font = `600 ${kjvFontSize}px ${fontStacks.sans}`;
   ctx.fillStyle = palette.mutedColor;
-  ctx.fillText('KING JAMES VERSION', w / 2, refY + (isLandscape ? 28 : 36));
+  ctx.fillText(isCjk ? versionLabel : versionLabel.toUpperCase(), w / 2, refY + (isLandscape ? 26 : 34));
 
-  // 8. Footer: Brand stamp "Versey"
-  ctx.font = `600 ${isLandscape ? 17 : 20}px "Inter", sans-serif`;
+  // 9. Footer: License Credit Line in Selected Language
+  ctx.font = `500 ${creditFontSize}px ${fontStacks.sans}`;
   ctx.fillStyle = palette.mutedColor;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText('Versey • verse of the day', w / 2, footerY);
+
+  creditLines.forEach((cLine, idx) => {
+    ctx.fillText(cLine, w / 2, footerStartY + idx * creditLineHeight);
+  });
 
   return canvas;
 }
 
 /**
  * Generates a PNG Blob from a canvas with a verse rendered.
- * @param {HTMLCanvasElement} canvas
- * @param {Object} verse
- * @param {string} format
- * @param {string} themeId
- * @returns {Promise<Blob>}
  */
 export async function generateVerseBlob(canvas, verse, format = 'post', themeId = 'cream') {
   await renderVerseToCanvas(canvas, verse, format, themeId);
@@ -375,11 +486,6 @@ export async function generateVerseBlob(canvas, verse, format = 'post', themeId 
 
 /**
  * Generates a File object suitable for Web Share API Level 2.
- * @param {HTMLCanvasElement} canvas
- * @param {Object} verse
- * @param {string} format
- * @param {string} themeId
- * @returns {Promise<File>}
  */
 export async function generateVerseFile(canvas, verse, format = 'post', themeId = 'cream') {
   const blob = await generateVerseBlob(canvas, verse, format, themeId);

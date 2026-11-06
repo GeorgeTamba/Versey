@@ -1,0 +1,5 @@
+Translation: King James Version (KJV)
+Language: English (en)
+License: Public Domain
+
+The King James Version (1611 / 1769 standard text) is in the public domain worldwide.

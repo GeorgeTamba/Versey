@@ -3,7 +3,7 @@
  * Caches application shell, assets, styles, scripts, and verses data.
  */
 
-const CACHE_NAME = 'versey-v2';
+const CACHE_NAME = 'versey-v6';
 const PRECACHE_ASSETS = [
   './',
   './index.html',
@@ -14,7 +14,13 @@ const PRECACHE_ASSETS = [
   './js/image.js',
   './js/share.js',
   './js/ui.js',
+  './data/i18n.json',
   './data/verses.json',
+  './data/verses.en.json',
+  './data/verses.es.json',
+  './data/verses.zh-Hans.json',
+  './data/verses.zh-Hant.json',
+  './data/verses.id.json',
   './assets/og-image.png',
   './assets/icon-192.png',
   './assets/icon-512.png'
@@ -23,7 +29,8 @@ const PRECACHE_ASSETS = [
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(PRECACHE_ASSETS);
+      const freshRequests = PRECACHE_ASSETS.map((url) => new Request(url, { cache: 'reload' }));
+      return cache.addAll(freshRequests);
     }).then(() => self.skipWaiting())
   );
 });
@@ -45,33 +52,18 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
+  // Network-first with HTTP cache bypass so local/updated scripts & JSON are always fresh when online,
+  // falling back to Cache Storage when offline.
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        // Fetch in background to update cache for next time
-        fetch(event.request).then((networkResponse) => {
-          if (networkResponse && networkResponse.status === 200) {
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, networkResponse));
-          }
-        }).catch(() => {
-          // Offline fallback silently ignored
-        });
-        return cachedResponse;
-      }
-
-      return fetch(event.request).then((networkResponse) => {
-        if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
-          return networkResponse;
+    fetch(event.request, { cache: 'no-store' })
+      .then((networkResponse) => {
+        if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
+          const responseToCache = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseToCache));
         }
-
-        const responseToCache = networkResponse.clone();
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(event.request, responseToCache);
-        });
-
         return networkResponse;
-      });
-    })
+      })
+      .catch(() => caches.match(event.request, { ignoreSearch: true }))
   );
 });
 

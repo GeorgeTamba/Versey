@@ -1,21 +1,25 @@
 /**
  * Versey — Main Application Entry Point (ES Module)
- * Connects daily KJV verse data, canvas image rendering, sharing, and UI state.
+ * Connects daily multi-language verse data, i18n, canvas image rendering,
+ * sharing, and UI state.
  */
 
 import {
+  detectInitialLanguage,
+  saveLanguagePreference,
+  ensureCjkStylesheet,
   getDayOfYear,
   getMsUntilLocalMidnight,
-  loadVerses,
-  getVerseForDay,
-  getFallbackVerse
-} from './verse.js';
+  loadI18n,
+  loadVersesForLanguage,
+  getVerseForDay
+} from './verse.js?v=6';
 
 import {
   renderVerseToCanvas,
   generateVerseBlob,
   generateVerseFile
-} from './image.js';
+} from './image.js?v=6';
 
 import {
   isWebShareSupported,
@@ -26,19 +30,21 @@ import {
   copyToClipboard,
   downloadBlob,
   SITE_URL
-} from './share.js';
+} from './share.js?v=6';
 
-import { UIManager } from './ui.js';
+import { UIManager } from './ui.js?v=6';
 
 class VerseyApp {
   constructor() {
-    this.versesData = [];
+    this.currentLang = detectInitialLanguage();
+    this.i18nData = {};
     this.currentVerse = null;
     this.activeDayOfYear = null;
     this.midnightTimerId = null;
 
     // Initialize UI Manager with callbacks
     this.ui = new UIManager({
+      onSelectLanguage: (langCode) => this.handleSelectLanguage(langCode),
       onCustomizerChange: (format, themeId) => this.renderImagePreview(format, themeId),
       onOpenSharePopup: () => this.handleOpenSharePopup(),
       onOpenDownloadPopup: () => this.handleOpenDownloadPopup(),
@@ -55,12 +61,19 @@ class VerseyApp {
   async init() {
     this.ui.setLoading(true);
 
-    try {
-      this.versesData = await loadVerses();
-    } catch (error) {
-      console.warn('Could not fetch external verses.json, using fallback scripture.', error);
-      this.versesData = [getFallbackVerse(1)];
-    }
+    // Load CJK fonts only if initial language is Chinese
+    ensureCjkStylesheet(this.currentLang);
+
+    const [i18n] = await Promise.all([
+      loadI18n(),
+      loadVersesForLanguage(this.currentLang).catch((err) => {
+        console.warn('Fallback to default verse:', err);
+      })
+    ]);
+
+    this.i18nData = i18n || {};
+    this.ui.setI18nData(this.i18nData);
+    this.ui.applyLanguageUI(this.currentLang);
 
     await this.updateTodayVerse();
     this.scheduleMidnightRollover();
@@ -78,26 +91,50 @@ class VerseyApp {
         window.location.hostname === 'localhost' ||
         window.location.hostname === '127.0.0.1')
     ) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker
-          .register('./service-worker.js')
-          .catch((err) => console.warn('Service Worker registration skipped:', err));
+      navigator.serviceWorker.addEventListener('controllerchange', async () => {
+        await loadVersesForLanguage(this.currentLang, true);
+        await this.updateTodayVerse();
       });
+
+      navigator.serviceWorker
+        .register('./service-worker.js', { updateViaCache: 'none' })
+        .then((reg) => reg.update())
+        .catch((err) => console.warn('Service Worker registration skipped:', err));
     }
   }
 
   /**
-   * Updates the view to show today's verse based on the user's local date.
+   * Handles switching language from the Language Picker Popup.
+   * Only fetches the selected language's JSON (and CJK fonts if Chinese),
+   * remembers the user's choice in localStorage, and updates the view immediately.
+   * @param {string} langCode
+   */
+  async handleSelectLanguage(langCode) {
+    if (!langCode) return;
+    this.currentLang = langCode;
+    saveLanguagePreference(langCode);
+    ensureCjkStylesheet(langCode);
+    this.ui.applyLanguageUI(langCode);
+
+    await loadVersesForLanguage(langCode);
+    await this.updateTodayVerse();
+  }
+
+  /**
+   * Updates the view to show today's verse in the selected language.
    */
   async updateTodayVerse() {
     const now = new Date();
     const dayOfYear = getDayOfYear(now);
     this.activeDayOfYear = dayOfYear;
 
-    this.currentVerse = getVerseForDay(this.versesData, dayOfYear);
+    this.currentVerse = getVerseForDay(dayOfYear, this.currentLang, this.i18nData);
     this.ui.renderVerse(this.currentVerse);
 
+    // Update social links and live canvas preview if popup is open
     if (this.ui.isPopupOpen) {
+      const socialUrls = buildSocialShareUrls(this.currentVerse, SITE_URL);
+      this.ui.updateSocialLinks(socialUrls);
       await this.renderImagePreview(this.ui.currentFormat, this.ui.currentImageTheme);
     }
   }
@@ -166,7 +203,7 @@ class VerseyApp {
   }
 
   /**
-   * Copies the verse and reference directly and shows a 2-second toast (no popup).
+   * Copies the verse and reference in the selected language and shows a 2-second toast.
    */
   async handleCopyText() {
     if (!this.currentVerse) return;
@@ -175,16 +212,14 @@ class VerseyApp {
     const success = await copyToClipboard(copyText);
 
     if (success) {
-      this.ui.showToast('Copied', 2000);
+      this.ui.showToast(this.ui.t('copiedToast', 'Copied'), 2000);
     } else {
-      this.ui.showToast('Unable to copy', 2000);
+      this.ui.showToast(this.ui.t('errorToast', 'Action failed'), 2000);
     }
   }
 
   /**
    * Executes final Share action on Step 3 of the Share popup.
-   * Uses native Web Share API with image and text when supported,
-   * otherwise reveals the direct-link fallback menu.
    */
   async handleConfirmShare() {
     if (!this.currentVerse) return;
@@ -204,7 +239,7 @@ class VerseyApp {
         }
 
         const sharePayload = {
-          title: `Verse of the Day — ${this.currentVerse.reference}`,
+          title: `${this.currentVerse.reference} (${this.currentVerse.translation || 'KJV'})`,
           text: shareText,
           url: SITE_URL
         };
@@ -216,7 +251,7 @@ class VerseyApp {
         const result = await shareNative(sharePayload);
         if (result.success) {
           this.ui.closeCardPopup();
-          this.ui.showToast('Shared', 2000);
+          this.ui.showToast(this.ui.t('sharedToast', 'Shared'), 2000);
           return;
         }
 
@@ -228,14 +263,12 @@ class VerseyApp {
       }
     }
 
-    // Fallback: reveal direct-link share options inside Step 3
     const socialUrls = buildSocialShareUrls(this.currentVerse, SITE_URL);
     this.ui.showFallbackShareLinks(socialUrls);
   }
 
   /**
    * Executes final Download action on Step 3 of the Download popup.
-   * Saves a PNG named `verse-of-the-day.png`.
    */
   async handleConfirmDownload() {
     if (!this.currentVerse || !this.ui.elements.verseCanvas) return;
@@ -250,10 +283,10 @@ class VerseyApp {
 
       downloadBlob(blob, 'verse-of-the-day.png');
       this.ui.closeCardPopup();
-      this.ui.showToast('Image saved', 2000);
+      this.ui.showToast(this.ui.t('savedToast', 'Image saved'), 2000);
     } catch (err) {
       console.error('Image download failed', err);
-      this.ui.showToast('Download failed', 2000);
+      this.ui.showToast(this.ui.t('errorToast', 'Action failed'), 2000);
     }
   }
 
@@ -263,9 +296,9 @@ class VerseyApp {
   async handleCopyLink() {
     const success = await copyToClipboard(SITE_URL);
     if (success) {
-      this.ui.showToast('Link copied', 2000);
+      this.ui.showToast(this.ui.t('linkCopiedToast', 'Link copied'), 2000);
     } else {
-      this.ui.showToast('Unable to copy link', 2000);
+      this.ui.showToast(this.ui.t('errorToast', 'Action failed'), 2000);
     }
   }
 }

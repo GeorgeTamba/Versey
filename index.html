@@ -3,21 +3,21 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="description" content="Versey — Daily inspiration from King James Version Bible verses with elegant, shareable typography cards.">
+  <meta name="description" content="Versey — Daily inspiration from Bible verses with elegant, shareable typography cards.">
   <meta name="theme-color" content="#faf8f5" id="theme-color-meta">
 
   <!-- Open Graph / Facebook -->
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://versey.pages.dev">
-  <meta property="og:title" content="Versey — Daily King James Bible Verse">
-  <meta property="og:description" content="Read, reflect, and share inspiring daily Scripture in the King James Version with beautiful image cards.">
+  <meta property="og:title" content="Versey — Verse of the Day">
+  <meta property="og:description" content="Read, reflect, and share inspiring daily Scripture with beautiful image cards.">
   <meta property="og:image" content="./assets/og-image.png">
 
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:url" content="https://versey.pages.dev">
-  <meta name="twitter:title" content="Versey — Daily King James Bible Verse">
-  <meta name="twitter:description" content="Read, reflect, and share inspiring daily Scripture in the King James Version with beautiful image cards.">
+  <meta name="twitter:title" content="Versey — Verse of the Day">
+  <meta name="twitter:description" content="Read, reflect, and share inspiring daily Scripture with beautiful image cards.">
   <meta name="twitter:image" content="./assets/og-image.png">
 
   <title>Versey — Verse of the Day</title>
@@ -29,12 +29,12 @@
   <!-- PWA Manifest -->
   <link rel="manifest" href="./manifest.webmanifest">
 
-  <!-- Google Fonts: Crimson Text & Inter -->
+  <!-- Google Fonts: Crimson Text & Inter (CJK fonts are loaded on-demand only when Chinese is selected) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Crimson+Text:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/styles.css?v=6">
 </head>
 <body>
   <div class="site-wrapper">
@@ -45,10 +45,18 @@
           <a href="#" class="brand-link" id="brand-link" aria-label="Versey Home">
             <span class="brand-name">Versey</span>
           </a>
-          <span class="brand-tagline">Verse of the Day</span>
+          <span class="brand-tagline" id="brand-tagline">Verse of the Day</span>
         </div>
 
         <div class="header-actions">
+          <button id="lang-toggle" class="icon-button" type="button" aria-label="Change language" title="Change language" aria-haspopup="dialog">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="2" y1="12" x2="22" y2="12"></line>
+              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+            </svg>
+          </button>
+
           <button id="theme-toggle" class="icon-button" type="button" aria-label="Toggle dark mode" title="Toggle dark mode">
             <svg class="theme-icon sun-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <circle cx="12" cy="12" r="5"></circle>
@@ -95,7 +103,7 @@
 
             <footer class="verse-meta-footer" id="verse-meta-footer">
               <cite class="verse-reference" id="verse-reference">— Loading Reference</cite>
-              <span class="verse-version-tag">King James Version</span>
+              <span class="verse-version-tag" id="verse-version-tag">King James Version</span>
             </footer>
           </div>
         </article>
@@ -133,9 +141,73 @@
     <!-- Footer -->
     <footer class="site-footer" role="contentinfo">
       <div class="footer-container">
-        <p class="footer-copy">Scripture: King James Version (Public Domain)</p>
+        <p class="footer-copy" id="footer-credit">Scripture: King James Version, public domain</p>
       </div>
     </footer>
+  </div>
+
+  <!-- Language Picker Popup (Bottom sheet on mobile, centered modal on desktop) -->
+  <div class="modal-backdrop" id="lang-popup-backdrop" aria-hidden="true">
+    <div class="lang-popup" id="lang-popup" role="dialog" aria-modal="true" aria-labelledby="lang-popup-title">
+      <div class="sheet-handle" aria-hidden="true"></div>
+
+      <div class="popup-header">
+        <h2 id="lang-popup-title" class="popup-title">Language</h2>
+        <button id="lang-popup-close-btn" class="modal-close-btn" type="button" aria-label="Close" title="Close (Esc)">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+
+      <div class="lang-options-list" id="lang-options-list" role="radiogroup" aria-labelledby="lang-popup-title">
+        <button type="button" class="lang-option-btn active" data-lang="en" role="radio" aria-checked="true">
+          <span class="lang-option-name">English</span>
+          <span class="lang-option-check" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+          </span>
+        </button>
+
+        <button type="button" class="lang-option-btn" data-lang="es" role="radio" aria-checked="false">
+          <span class="lang-option-name">Español</span>
+          <span class="lang-option-check" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+          </span>
+        </button>
+
+        <button type="button" class="lang-option-btn" data-lang="zh-Hans" role="radio" aria-checked="false">
+          <span class="lang-option-name">中文 (简体)</span>
+          <span class="lang-option-check" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+          </span>
+        </button>
+
+        <button type="button" class="lang-option-btn" data-lang="zh-Hant" role="radio" aria-checked="false">
+          <span class="lang-option-name">中文 (繁體)</span>
+          <span class="lang-option-check" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+          </span>
+        </button>
+
+        <button type="button" class="lang-option-btn" data-lang="id" role="radio" aria-checked="false">
+          <span class="lang-option-name">Bahasa Indonesia</span>
+          <span class="lang-option-check" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+          </span>
+        </button>
+      </div>
+    </div>
   </div>
 
   <!-- Reusable 3-Step Card Popup (mode: "share" | "download") -->
@@ -149,7 +221,7 @@
           <h2 id="popup-title" class="popup-title">Share Verse</h2>
           <span id="popup-step-indicator" class="popup-step-indicator" aria-live="polite">1 of 3</span>
         </div>
-        <button id="popup-close-btn" class="modal-close-btn" type="button" aria-label="Close popup" title="Close (Esc)">
+        <button id="popup-close-btn" class="modal-close-btn" type="button" aria-label="Close" title="Close (Esc)">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <line x1="18" y1="6" x2="6" y2="18"></line>
             <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -176,7 +248,7 @@
             <button type="button" class="format-btn" data-format="story" role="radio" aria-checked="false">
               <span class="format-icon tall-icon" aria-hidden="true"></span>
               <span class="format-info">
-                <strong>Story / Status</strong>
+                <strong id="format-name-story">Story / Status</strong>
                 <small>1080 × 1920</small>
               </span>
             </button>
@@ -184,7 +256,7 @@
             <button type="button" class="format-btn active" data-format="post" role="radio" aria-checked="true">
               <span class="format-icon square-icon" aria-hidden="true"></span>
               <span class="format-info">
-                <strong>Square Post</strong>
+                <strong id="format-name-post">Square Post</strong>
                 <small>1080 × 1080</small>
               </span>
             </button>
@@ -192,7 +264,7 @@
             <button type="button" class="format-btn" data-format="landscape" role="radio" aria-checked="false">
               <span class="format-icon wide-icon" aria-hidden="true"></span>
               <span class="format-info">
-                <strong>Landscape</strong>
+                <strong id="format-name-landscape">Landscape</strong>
                 <small>1200 × 675</small>
               </span>
             </button>
@@ -206,39 +278,39 @@
             <span class="selected-color-name" id="selected-color-name">Soft Cream</span>
           </div>
           <div class="theme-swatch-grid" role="radiogroup" aria-labelledby="theme-label" id="theme-swatches">
-            <!-- Populated dynamically from 18+ swatches + custom color picker -->
+            <!-- Populated dynamically from 20 swatches + custom color picker -->
           </div>
         </div>
 
         <!-- Step 3: Preview & Final Action -->
         <div class="popup-step-panel hidden" id="step-panel-3" data-step="3">
-          <p class="step-summary-text" id="step-summary-text">Ready to share your verse card</p>
+          <p class="step-summary-text" id="step-summary-text">Square Post (1080×1080) • Soft Cream</p>
 
-          <!-- Fallback Direct-Link Share Options (shown when native share is unavailable or via toggle) -->
+          <!-- Fallback Direct-Link Share Options (shown when native share is unavailable) -->
           <div class="fallback-share-links hidden" id="fallback-share-links" aria-label="Direct share links">
             <div class="share-options-grid">
-              <a id="share-link-wa" class="share-option-btn share-wa" href="#" target="_blank" rel="noopener noreferrer" aria-label="Share on WhatsApp">
+              <a id="share-link-wa" class="share-option-btn share-wa" href="#" target="_blank" rel="noopener noreferrer" aria-label="WhatsApp">
                 <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                   <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
                 </svg>
                 <span>WhatsApp</span>
               </a>
 
-              <a id="share-link-x" class="share-option-btn share-x" href="#" target="_blank" rel="noopener noreferrer" aria-label="Share on X">
+              <a id="share-link-x" class="share-option-btn share-x" href="#" target="_blank" rel="noopener noreferrer" aria-label="X">
                 <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
                   <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"></path>
                 </svg>
                 <span>X</span>
               </a>
 
-              <a id="share-link-fb" class="share-option-btn share-fb" href="#" target="_blank" rel="noopener noreferrer" aria-label="Share on Facebook">
+              <a id="share-link-fb" class="share-option-btn share-fb" href="#" target="_blank" rel="noopener noreferrer" aria-label="Facebook">
                 <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                   <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"></path>
                 </svg>
                 <span>Facebook</span>
               </a>
 
-              <a id="share-link-email" class="share-option-btn share-email" href="#" aria-label="Share via Email">
+              <a id="share-link-email" class="share-option-btn share-email" href="#" aria-label="Email">
                 <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                   <rect x="2" y="4" width="20" height="16" rx="2"></rect>
                   <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path>
@@ -251,7 +323,7 @@
                   <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
                   <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
                 </svg>
-                <span>Copy Link</span>
+                <span id="copy-link-label">Copy Link</span>
               </button>
             </div>
           </div>
@@ -264,11 +336,11 @@
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <polyline points="15 18 9 12 15 6"></polyline>
           </svg>
-          <span>Back</span>
+          <span id="popup-back-label">Back</span>
         </button>
 
         <button id="popup-next-btn" class="btn btn-primary popup-nav-btn" type="button">
-          <span>Next</span>
+          <span id="popup-next-label">Next</span>
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <polyline points="9 18 15 12 9 6"></polyline>
           </svg>
@@ -286,6 +358,6 @@
   <div class="toast-container" id="toast-container" aria-live="polite" aria-atomic="true"></div>
 
   <!-- Application Logic (ES Modules) -->
-  <script type="module" src="js/app.js"></script>
+  <script type="module" src="js/app.js?v=6"></script>
 </body>
 </html>

@@ -17,3 +17,7 @@ desktop.ini
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Offline Bible USFM source archives (used only by scripts/build-verses.js)
+sources/*
+!sources/README.md

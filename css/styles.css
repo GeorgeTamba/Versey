@@ -35,7 +35,7 @@
   --shadow-md: 0 8px 24px rgba(34, 31, 29, 0.07);
   --shadow-lg: 0 18px 40px rgba(34, 31, 29, 0.14);
 
-  /* Typography */
+  /* Typography (Latin default; CJK overrides below) */
   --font-serif: "Crimson Text", Garamond, "Times New Roman", serif;
   --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 
@@ -50,6 +50,16 @@
 
   /* Layout */
   --container-max-w: 660px;
+}
+
+html[lang="zh-Hans"] {
+  --font-serif: "Noto Serif SC", "Songti SC", "STSong", "SimSun", serif;
+  --font-sans: "Noto Sans SC", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+}
+
+html[lang="zh-Hant"] {
+  --font-serif: "Noto Serif TC", "Songti TC", "PMingLiU", "MingLiU", serif;
+  --font-sans: "Noto Sans TC", "PingFang TC", "Heiti TC", "Microsoft JhengHei", sans-serif;
 }
 
 [data-theme="dark"] {
@@ -194,6 +204,7 @@ input:focus-visible {
 .header-actions {
   display: flex;
   align-items: center;
+  gap: 0.5rem;
 }
 
 .icon-button {
@@ -202,11 +213,17 @@ input:focus-visible {
   justify-content: center;
   width: 44px;
   height: 44px;
+  min-width: 44px;
+  min-height: 44px;
   border-radius: var(--radius-full);
   background-color: var(--bg-surface);
   border: 1px solid var(--border-subtle);
   color: var(--text-main);
   transition: background-color var(--transition-fast), transform var(--transition-fast);
+}
+
+.icon-button:hover {
+  background-color: var(--bg-surface-hover);
 }
 
 .icon-button:active {
@@ -228,8 +245,8 @@ input:focus-visible {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: clamp(0.75rem, 2.2dvh, 1.35rem);
-  padding: clamp(0.4rem, 1.2dvh, 1rem) 0;
+  gap: clamp(0.7rem, 2dvh, 1.3rem);
+  padding: clamp(0.35rem, 1dvh, 0.9rem) 0;
   overflow: hidden;
 }
 
@@ -250,7 +267,7 @@ input:focus-visible {
   background-color: var(--bg-card);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
-  padding: clamp(1.1rem, 3.2dvh, 2.25rem) clamp(1.15rem, 4vw, 2.25rem);
+  padding: clamp(1rem, 3dvh, 2.15rem) clamp(1.1rem, 4vw, 2.2rem);
   box-shadow: var(--shadow-md);
   display: flex;
   flex-direction: column;
@@ -279,7 +296,7 @@ input:focus-visible {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  gap: clamp(0.5rem, 1.6dvh, 1.15rem);
+  gap: clamp(0.5rem, 1.5dvh, 1.1rem);
 }
 
 .verse-meta-header {
@@ -294,8 +311,8 @@ input:focus-visible {
   font-size: clamp(0.68rem, 1.8vw, 0.75rem);
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.07em;
-  padding: 0.25rem 0.7rem;
+  letter-spacing: 0.06em;
+  padding: 0.24rem 0.7rem;
   border-radius: var(--radius-full);
   background-color: var(--badge-bg);
   color: var(--badge-text);
@@ -324,6 +341,12 @@ input:focus-visible {
   quotes: "“" "”" "‘" "’";
 }
 
+.verse-text[lang="zh-Hans"],
+.verse-text[lang="zh-Hant"] {
+  line-height: 1.68;
+  letter-spacing: 0.02em;
+}
+
 .verse-text::before {
   content: "“";
   font-size: 1.2em;
@@ -342,6 +365,22 @@ input:focus-visible {
   color: var(--text-subtle);
 }
 
+.verse-text[lang="zh-Hans"]::before,
+.verse-text[lang="zh-Hant"]::before {
+  content: "「";
+  font-size: 1em;
+  vertical-align: 0;
+  margin-right: 0.04em;
+}
+
+.verse-text[lang="zh-Hans"]::after,
+.verse-text[lang="zh-Hant"]::after {
+  content: "」";
+  font-size: 1em;
+  vertical-align: 0;
+  margin-left: 0.04em;
+}
+
 .verse-meta-footer {
   flex-shrink: 0;
   display: flex;
@@ -349,7 +388,7 @@ input:focus-visible {
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 0.4rem;
-  padding-top: clamp(0.5rem, 1.4dvh, 0.9rem);
+  padding-top: clamp(0.45rem, 1.3dvh, 0.85rem);
   border-top: 1px solid var(--border-subtle);
 }
 
@@ -359,6 +398,11 @@ input:focus-visible {
   font-style: italic;
   font-weight: 600;
   color: var(--text-main);
+}
+
+html[lang="zh-Hans"] .verse-reference,
+html[lang="zh-Hant"] .verse-reference {
+  font-style: normal;
 }
 
 .verse-version-tag {
@@ -451,21 +495,25 @@ input:focus-visible {
 }
 
 /* --------------------------------------------------------------------------
-   Footer
+   Footer (Supports multi-line CC BY-SA 4.0 credit without page scroll)
    -------------------------------------------------------------------------- */
 .site-footer {
   flex-shrink: 0;
-  padding-top: 0.4rem;
+  padding-top: 0.3rem;
   text-align: center;
 }
 
 .footer-copy {
-  font-size: clamp(0.7rem, 1.8vw, 0.78rem);
+  font-size: clamp(0.63rem, 1.65vw, 0.74rem);
+  line-height: 1.3;
   color: var(--text-subtle);
+  max-width: 58ch;
+  margin: 0 auto;
 }
 
 /* --------------------------------------------------------------------------
-   3-Step Popup (Bottom Sheet on Mobile, Centered Modal on Desktop)
+   Popups: Language Picker & 3-Step Card Popup
+   (Bottom Sheet on Mobile, Centered Modal on Desktop)
    -------------------------------------------------------------------------- */
 .modal-backdrop {
   position: fixed;
@@ -487,7 +535,8 @@ input:focus-visible {
   pointer-events: auto;
 }
 
-.card-popup {
+.card-popup,
+.lang-popup {
   width: 100%;
   max-width: 500px;
   max-height: 90dvh;
@@ -504,7 +553,12 @@ input:focus-visible {
   transition: transform var(--transition-normal);
 }
 
-.modal-backdrop.is-open .card-popup {
+.lang-popup {
+  max-width: 400px;
+}
+
+.modal-backdrop.is-open .card-popup,
+.modal-backdrop.is-open .lang-popup {
   transform: translateY(0);
 }
 
@@ -513,7 +567,7 @@ input:focus-visible {
   height: 4px;
   border-radius: var(--radius-full);
   background-color: var(--border-subtle);
-  margin: 0 auto 0.15rem;
+  margin: 0 auto 0.1rem;
   flex-shrink: 0;
 }
 
@@ -562,6 +616,56 @@ input:focus-visible {
 .modal-close-btn:active {
   background-color: var(--bg-surface);
   color: var(--text-main);
+}
+
+/* Language Picker List (Fits 5 options without scrolling) */
+.lang-options-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.lang-option-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 46px;
+  padding: 0.6rem 0.9rem;
+  border-radius: var(--radius-md);
+  background-color: var(--bg-surface);
+  border: 1.5px solid var(--border-subtle);
+  color: var(--text-main);
+  font-size: 0.92rem;
+  font-weight: 500;
+  text-align: left;
+  transition: all var(--transition-fast);
+}
+
+.lang-option-btn:hover {
+  background-color: var(--bg-surface-hover);
+}
+
+.lang-option-btn.active {
+  background-color: var(--bg-card);
+  border-color: var(--border-focus);
+  font-weight: 600;
+  box-shadow: var(--shadow-sm);
+}
+
+.lang-option-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-main);
+  opacity: 0;
+  transform: scale(0.8);
+  transition: opacity var(--transition-fast), transform var(--transition-fast);
+}
+
+.lang-option-btn.active .lang-option-check {
+  opacity: 1;
+  transform: scale(1);
 }
 
 /* Live Preview Area (Visible on all 3 steps) */
@@ -925,14 +1029,16 @@ input:focus-visible {
     padding: 1.5rem;
   }
 
-  .card-popup {
+  .card-popup,
+  .lang-popup {
     border-radius: var(--radius-lg);
     border: 1px solid var(--border-subtle);
     padding: 1.25rem 1.5rem;
     transform: translateY(16px) scale(0.98);
   }
 
-  .modal-backdrop.is-open .card-popup {
+  .modal-backdrop.is-open .card-popup,
+  .modal-backdrop.is-open .lang-popup {
     transform: translateY(0) scale(1);
   }
 
